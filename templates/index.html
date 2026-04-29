@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Work Timer</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- Header -->
+    <header>
+      <h1>Work Timer</h1>
+      <a class="btn-report" href="#" onclick="this.href='/report/'+new Date().getFullYear()" target="_blank">&#128438; Annual Report</a>
+    </header>
+
+    <div class="app-body">
+
+      <!-- Left column: settings + timer + goal banner (sticky) -->
+      <div class="col-left">
+
+        <!-- Settings -->
+        <section class="settings-panel" id="settingsPanel">
+          <div class="settings-grid">
+            <label>Daily Hours
+              <input type="number" id="cfgDailyHours" min="1" max="24" step="0.5" />
+            </label>
+            <label>Weekly Hours
+              <input type="number" id="cfgWeeklyHours" min="1" max="80" step="0.5" />
+            </label>
+            <label>Alert (minutes before end)
+              <input type="number" id="cfgAlertMinutes" min="1" max="120" step="1" />
+            </label>
+            <label>Hourly Rate ($)
+              <input type="number" id="cfgHourlyRate" min="0" step="0.01" placeholder="0.00" />
+            </label>
+          </div>
+          <button class="btn btn-save" onclick="saveSettings()">Save Settings</button>
+          <span class="settings-msg" id="settingsMsg"></span>
+        </section>
+
+        <!-- Timer -->
+        <section class="timer-section">
+          <div class="timer-display" id="timerDisplay">00:00:00</div>
+          <div class="status-badge" id="statusBadge">Idle</div>
+          <div class="controls">
+            <button class="btn btn-start" id="btnStart" onclick="handleStart()">Start</button>
+            <button class="btn btn-pause" id="btnPause" onclick="handlePause()" disabled>Pause</button>
+            <button class="btn btn-stop"  id="btnStop"  onclick="handleStop()"  disabled>Stop</button>
+          </div>
+        </section>
+
+        <!-- Goal reached banner -->
+        <div class="goal-banner" id="goalBanner" hidden>
+          Daily goal reached!
+        </div>
+
+      </div>
+
+      <!-- Right column: progress + calendar -->
+      <div class="col-right">
+
+        <!-- Progress -->
+        <section class="progress-section">
+          <div class="progress-card">
+            <div class="progress-header">
+              <span class="progress-label">Today</span>
+              <div class="progress-right">
+                <span class="progress-value" id="dayValue">0h 00m / 7h</span>
+                <span class="earnings-value" id="dayEarnings" hidden></span>
+              </div>
+            </div>
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill" id="dayBar" style="width:0%"></div>
+            </div>
+          </div>
+
+          <div class="progress-card">
+            <div class="progress-header">
+              <span class="progress-label">This Week</span>
+              <div class="progress-right">
+                <span class="progress-value" id="weekValue">0h 00m / 35h</span>
+                <span class="earnings-value" id="weekEarnings" hidden></span>
+              </div>
+            </div>
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill" id="weekBar" style="width:0%"></div>
+            </div>
+          </div>
+
+          <div class="progress-card">
+            <div class="progress-header">
+              <span class="progress-label">This Month</span>
+              <div class="progress-right">
+                <span class="progress-value" id="monthValue">0h 00m / 140h</span>
+                <span class="earnings-value" id="monthEarnings" hidden></span>
+              </div>
+            </div>
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill" id="monthBar" style="width:0%"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Calendar -->
+        <section class="calendar-section">
+          <div class="progress-card" id="dayLogPanel" hidden>
+            <div class="progress-header">
+              <span class="progress-label" id="dayLogDate"></span>
+              <span class="progress-value" id="dayLogTotal"></span>
+            </div>
+            <div id="dayLogSessions"></div>
+          </div>
+          <div class="progress-card">
+            <div class="calendar-header">
+              <button class="cal-nav" onclick="calNavigate(-1)">&#8249;</button>
+              <span class="calendar-title" id="calTitle"></span>
+              <button class="cal-nav" onclick="calNavigate(1)">&#8250;</button>
+            </div>
+            <div id="calGrid"></div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- Footer info -->
+    <footer class="info-row">
+      <span id="breakInfo"></span>
+    </footer>
+
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

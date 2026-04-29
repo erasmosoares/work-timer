@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Work Report {{ year }}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent:  #6366f1;
+      --green:   #16a34a;
+      --red:     #dc2626;
+      --border:  #e2e8f0;
+      --muted:   #64748b;
+      --surface: #f8fafc;
+    }
+
+    body {
+      background: #fff;
+      color: #1e293b;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      padding: 2rem;
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    /* ── Toolbar (hidden in print) ─────────────────────────── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .toolbar-nav { display: flex; gap: 0.5rem; align-items: center; }
+    .btn-nav {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: #475569;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.4rem 0.9rem;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-nav:hover { background: var(--border); }
+    .btn-print {
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      padding: 0.55rem 1.4rem;
+    }
+    .btn-print:hover { opacity: 0.9; }
+
+    /* ── Report header ──────────────────────────────────────── */
+    .report-header { margin-bottom: 2rem; }
+    .report-header h1 {
+      font-size: 1.9rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .report-header .meta {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 0.4rem;
+    }
+
+    /* ── Section title ──────────────────────────────────────── */
+    .section-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      margin-bottom: 0.85rem;
+    }
+
+    /* ── Summary cards ──────────────────────────────────────── */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+    }
+    .summary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+    }
+    .summary-card .label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 0.45rem;
+    }
+    .summary-card .value {
+      font-size: 1.45rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      line-height: 1.1;
+    }
+    .summary-card .value.accent   { color: var(--accent); }
+    .summary-card .value.positive { color: var(--green); }
+    .summary-card .value.negative { color: var(--red); }
+    .summary-card .value.plain    { color: #1e293b; }
+    .summary-card .sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+    }
+
+    /* ── Monthly table ──────────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    thead th {
+      background: var(--surface);
+      border-bottom: 2px solid var(--border);
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    tbody td {
+      border-bottom: 1px solid var(--border);
+      padding: 0.6rem 0.75rem;
+      vertical-align: middle;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #f8fafc; }
+    tfoot td {
+      border-top: 2px solid var(--border);
+      font-weight: 700;
+      padding: 0.65rem 0.75rem;
+      background: var(--surface);
+    }
+    .td-right  { text-align: right; }
+    .td-center { text-align: center; }
+    .td-month  { font-weight: 600; }
+    .ot-pos { color: var(--green); font-weight: 600; }
+    .ot-neg { color: var(--red);   font-weight: 600; }
+
+    /* Progress mini-bar */
+    .bar-wrap {
+      background: #e2e8f0;
+      border-radius: 999px;
+      height: 6px;
+      min-width: 70px;
+      overflow: hidden;
+    }
+    .bar-fill { background: var(--accent); border-radius: 999px; height: 100%; }
+    .bar-fill.full { background: var(--green); }
+    .bar-cell { display: flex; align-items: center; gap: 0.45rem; }
+    .bar-pct { color: var(--muted); font-size: 0.76rem; white-space: nowrap; }
+
+    /* ── Print ──────────────────────────────────────────────── */
+    @media print {
+      .toolbar { display: none !important; }
+      body { padding: 0; }
+      .summary-card { break-inside: avoid; }
+      thead { display: table-header-group; }
+      tr { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-nav">
+      <a class="btn-nav" href="/report/{{ prev_year }}">&#8249; {{ prev_year }}</a>
+      <a class="btn-nav" href="/">&#8962; Dashboard</a>
+      {% if has_next %}
+      <a class="btn-nav" href="/report/{{ next_year }}">{{ next_year }} &#8250;</a>
+      {% endif %}
+    </div>
+    <button class="btn-print" onclick="window.print()">&#128438;&nbsp; Print / Save as PDF</button>
+  </div>
+
+  <!-- Header -->
+  <div class="report-header">
+    <h1>Annual Work Report &mdash; {{ year }}</h1>
+    <p class="meta">
+      Generated {{ generated_on }}
+      &nbsp;&middot;&nbsp; Daily goal: {{ daily_hours|int }}h
+      {% if has_earnings %}&nbsp;&middot;&nbsp; Hourly rate: ${{ "%.2f"|format(hourly_rate) }}{% endif %}
+    </p>
+  </div>
+
+  <!-- Summary -->
+  <p class="section-title">Year at a Glance</p>
+  <div class="summary-grid">
+
+    <div class="summary-card">
+      <div class="label">Total Worked</div>
+      <div class="value accent">{{ total_worked_hm }}</div>
+    </div>
+
+    <div class="summary-card">
+      <div class="label">Target Hours</div>
+      <div class="value plain">{{ total_target_hm }}</div>
+    </div>
+
+    <div class="summary-card">
+      <div class="label">Overtime Balance</div>
+      <div class="value {{ 'positive' if total_overtime_positive else 'negative' }}">{{ total_overtime_hm }}</div>
+    </div>
+
+    <div class="summary-card">
+      <div class="label">Avg Daily Hours</div>
+      <div class="value plain">{{ avg_daily_hm }}</div>
+      <div class="sub">on days worked</div>
+    </div>
+
+    <div class="summary-card">
+      <div class="label">Goal Days Met</div>
+      <div class="value plain">{{ total_goal_days }}</div>
+      <div class="sub">of {{ total_worked_days }} days worked</div>
+    </div>
+
+    {% if best_month %}
+    <div class="summary-card">
+      <div class="label">Most Productive Month</div>
+      <div class="value plain" style="font-size:1.1rem">{{ best_month }}</div>
+    </div>
+    {% endif %}
+
+    {% if total_earnings %}
+    <div class="summary-card">
+      <div class="label">Total Earnings</div>
+      <div class="value positive">${{ total_earnings }}</div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Monthly table -->
+  <p class="section-title">Monthly Breakdown</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Month</th>
+        <th class="td-center">Work Days</th>
+        <th class="td-right">Target</th>
+        <th class="td-right">Worked</th>
+        <th class="td-right">Overtime</th>
+        <th class="td-center">Goal Days</th>
+        <th style="min-width:100px">Progress</th>
+        {% if has_earnings %}<th class="td-right">Earnings</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in months %}
+      <tr>
+        <td class="td-month">{{ m.month_name }}</td>
+        <td class="td-center">{{ m.working_days }}</td>
+        <td class="td-right">{{ m.target_hm }}</td>
+        <td class="td-right">{{ m.worked_hm }}</td>
+        <td class="td-right {{ 'ot-pos' if m.overtime_positive else 'ot-neg' }}">{{ m.overtime_hm }}</td>
+        <td class="td-center">{{ m.goal_days }} / {{ m.working_days }}</td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-wrap">
+              <div class="bar-fill {{ 'full' if m.pct >= 100 }}" style="width:{{ m.pct }}%"></div>
+            </div>
+            <span class="bar-pct">{{ m.pct }}%</span>
+          </div>
+        </td>
+        {% if has_earnings %}<td class="td-right">${{ m.earnings }}</td>{% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td>Total</td>
+        <td></td>
+        <td class="td-right">{{ total_target_hm }}</td>
+        <td class="td-right">{{ total_worked_hm }}</td>
+        <td class="td-right {{ 'ot-pos' if total_overtime_positive else 'ot-neg' }}">{{ total_overtime_hm }}</td>
+        <td class="td-center">{{ total_goal_days }} / {{ total_worked_days }}</td>
+        <td></td>
+        {% if has_earnings %}<td class="td-right">${{ total_earnings }}</td>{% endif %}
+      </tr>
+    </tfoot>
+  </table>
+
+</body>
+</html>
