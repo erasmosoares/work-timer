@@ -77,6 +77,14 @@ def get_active_session():
     return dict(row) if row else None
 
 
+def get_session(session_id: int) -> dict | None:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM work_sessions WHERE id = ?", (session_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
 def start_session(session_type: str = "work") -> dict:
     now = _now_iso()
     today = _today()
@@ -202,6 +210,30 @@ def get_day_sessions(target_date: str) -> list:
             (target_date,),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def update_session(session_id: int, start_time: str, end_time: str, session_type: str) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE work_sessions SET start_time=?, end_time=?, session_type=? WHERE id=?",
+            (start_time, end_time, session_type, session_id),
+        )
+        conn.commit()
+
+
+def delete_session(session_id: int) -> None:
+    with get_conn() as conn:
+        conn.execute("DELETE FROM work_sessions WHERE id=?", (session_id,))
+        conn.commit()
+
+
+def insert_session(date_str: str, start_time: str, end_time: str, session_type: str) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO work_sessions (date, start_time, end_time, session_type) VALUES (?,?,?,?)",
+            (date_str, start_time, end_time, session_type),
+        )
+        conn.commit()
 
 
 def _fmt_hm(seconds: float) -> str:

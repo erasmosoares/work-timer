@@ -99,6 +99,55 @@ def sessions_log(date):
     return jsonify({"date": date, "sessions": sessions})
 
 
+@app.route("/api/sessions/manual", methods=["POST"])
+def add_manual_session():
+    data = request.get_json(force=True)
+    date_str = data.get("date")
+    start_time = data.get("start_time")
+    end_time = data.get("end_time")
+    session_type = data.get("session_type", "work")
+    if not all([date_str, start_time, end_time]):
+        return jsonify({"error": "Missing required fields"}), 400
+    if session_type not in ("work", "break"):
+        return jsonify({"error": "Invalid session_type"}), 400
+    if start_time >= end_time:
+        return jsonify({"error": "start_time must be before end_time"}), 400
+    db.insert_session(date_str, start_time, end_time, session_type)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/sessions/<int:session_id>", methods=["PUT"])
+def update_session(session_id):
+    session = db.get_session(session_id)
+    if not session:
+        return jsonify({"error": "Session not found"}), 404
+    if session["end_time"] is None:
+        return jsonify({"error": "Cannot edit the active session"}), 409
+    data = request.get_json(force=True)
+    start_time = data.get("start_time")
+    end_time = data.get("end_time")
+    session_type = data.get("session_type")
+    if not all([start_time, end_time, session_type]):
+        return jsonify({"error": "Missing required fields"}), 400
+    if session_type not in ("work", "break"):
+        return jsonify({"error": "Invalid session_type"}), 400
+    if start_time >= end_time:
+        return jsonify({"error": "start_time must be before end_time"}), 400
+    db.update_session(session_id, start_time, end_time, session_type)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/sessions/<int:session_id>", methods=["DELETE"])
+def delete_session(session_id):
+    session = db.get_session(session_id)
+    if not session:
+        return jsonify({"error": "Session not found"}), 404
+    if session["end_time"] is None:
+        return jsonify({"error": "Cannot delete the active session"}), 409
+    db.delete_session(session_id)
+    return jsonify({"ok": True})
+
+
 @app.route("/report/<int:year>")
 def annual_report(year):
     data = db.get_annual_report(year)

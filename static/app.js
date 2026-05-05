@@ -64,6 +64,17 @@ function fmtEarnings(seconds) {
   return '$' + ((seconds / 3600) * rate).toFixed(2);
 }
 
+function isoToLocalTime(iso) {
+  const d = new Date(iso);
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
+function localTimeToIso(dateStr, timeStr) {
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const [h, m] = timeStr.split(':').map(Number);
+  return new Date(y, mo - 1, d, h, m, 0, 0).toISOString();
+}
+
 // ── Total worked seconds right now ─────────────────────────────────────────
 function totalWorkedNow() {
   if (state === 'working' && activeStart) {
@@ -381,10 +392,11 @@ async function showDayLog(dateStr) {
   const e = fmtEarnings(totalWork);
   totalEl.textContent = e ? `${fmtHM(totalWork)} · ${e}` : fmtHM(totalWork);
 
+  let html = '';
   if (data.sessions.length === 0) {
-    sessionsEl.innerHTML = '<div class="day-log-empty">No sessions recorded</div>';
+    html = '<div class="day-log-empty">No sessions recorded</div>';
   } else {
-    let html = '<div class="day-log-sessions">';
+    html = '<div class="day-log-sessions">';
     data.sessions.forEach(s => {
       const start = new Date(s.start_time);
       const end = s.end_time ? new Date(s.end_time) : now;
@@ -394,18 +406,149 @@ async function showDayLog(dateStr) {
         ? end.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
         : 'ongoing';
       const earnStr = s.session_type === 'work' ? fmtEarnings(dur) : '';
+      const actions = s.end_time
+        ? `<span class="session-actions">
+             <button class="btn-icon" data-action="edit" data-id="${s.id}" title="Edit">✏</button>
+             <button class="btn-icon btn-icon-danger" data-action="delete" data-id="${s.id}" title="Delete">🗑</button>
+           </span>`
+        : '';
       html += `
-        <div class="session-row">
+        <div class="session-row" data-id="${s.id}">
           <span class="session-type ${s.session_type}">${s.session_type}</span>
           <span class="session-time">${startStr} → ${endStr}</span>
           <span class="session-duration">${fmtHM(dur)}${earnStr ? ' · ' + earnStr : ''}</span>
+          ${actions}
         </div>`;
     });
     html += '</div>';
-    sessionsEl.innerHTML = html;
   }
+  html += '<button class="btn-add-session" id="btnAddSession">+ Add interval</button>';
+  sessionsEl.innerHTML = html;
+
+  sessionsEl.querySelectorAll('[data-action="edit"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = parseInt(btn.dataset.id);
+      const s = data.sessions.find(s => s.id === id);
+      const row = sessionsEl.querySelector(`.session-row[data-id="${id}"]`);
+      editSession(id, row, dateStr, s);
+    });
+  });
+
+  sessionsEl.querySelectorAll('[data-action="delete"]').forEach(btn => {
+    btn.addEventListener('click', () => deleteSession(parseInt(btn.dataset.id), dateStr));
+  });
+
+  document.getElementById('btnAddSession').addEventListener('click', () => {
+    addSessionForm(dateStr, data.sessions);
+  });
 
   panel.hidden = false;
+}
+
+function editSession(id, row, dateStr, session) {
+  const startVal = isoToLocalTime(session.start_time);
+  const endVal   = session.end_time ? isoToLocalTime(session.end_time) : '';
+  row.classList.add('session-edit-row');
+  row.innerHTML = `
+    <select class="session-edit-select">
+      <option value="work"  ${session.session_type === 'work'  ? 'selected' : ''}>Work</option>
+      <option value="break" ${session.session_type === 'break' ? 'selected' : ''}>Break</option>
+    </select>
+    <input type="time" class="session-edit-time session-edit-start" value="${startVal}">
+    <span style="color:var(--muted)">–</span>
+    <input type="time" class="session-edit-time session-edit-end" value="${endVal}">
+    <button class="btn-icon btn-save-edit" title="Save">✓</button>
+    <button class="btn-icon btn-cancel-edit" title="Cancel">✗</button>
+    <span class="session-edit-error"></span>
+  `;
+
+  row.querySelector('.btn-save-edit').addEventListener('click', async () => {
+    const typeEl  = row.querySelector('.session-edit-select');
+    const startEl = row.querySelector('.session-edit-start');
+    const endEl   = row.querySelector('.session-edit-end');
+    const errEl   = row.querySelector('.session-edit-error');
+    if (!startEl.value || !endEl.value) { errEl.textContent = 'Both times are required'; return; }
+    const startIso = localTimeToIso(dateStr, startEl.value);
+    const endIso   = localTimeToIso(dateStr, endEl.value);
+    if (new Date(startIso) >= new Date(endIso)) { errEl.textContent = 'Start must be before end'; return; }
+    try {
+      await api(`/api/sessions/${id}`, 'PUT', { start_time: startIso, end_time: endIso, session_type: typeEl.value });
+      await refreshAfterEdit(dateStr);
+    } catch (err) {
+      errEl.textContent = 'Save failed';
+    }
+  });
+
+  row.querySelector('.btn-cancel-edit').addEventListener('click', () => showDayLog(dateStr));
+}
+
+async function deleteSession(id, dateStr) {
+  if (!confirm('Delete this session?')) return;
+  try {
+    await api(`/api/sessions/${id}`, 'DELETE');
+    await refreshAfterEdit(dateStr);
+  } catch (err) {
+    alert('Delete failed: ' + err.message);
+  }
+}
+
+function addSessionForm(dateStr, sessions) {
+  if (document.getElementById('addSessionRow')) return;
+  document.getElementById('btnAddSession').hidden = true;
+
+  let defaultStart = '09:00';
+  let defaultEnd   = '10:00';
+  const closed = sessions.filter(s => s.end_time);
+  if (closed.length > 0) {
+    const lastEnd = new Date(closed[closed.length - 1].end_time);
+    const startDt = new Date(lastEnd.getTime() + 30 * 60 * 1000);
+    const endDt   = new Date(startDt.getTime() + 60 * 60 * 1000);
+    defaultStart = isoToLocalTime(startDt.toISOString());
+    defaultEnd   = isoToLocalTime(endDt.toISOString());
+  }
+
+  const formRow = document.createElement('div');
+  formRow.id = 'addSessionRow';
+  formRow.className = 'session-row session-edit-row';
+  formRow.innerHTML = `
+    <select class="session-edit-select">
+      <option value="work" selected>Work</option>
+      <option value="break">Break</option>
+    </select>
+    <input type="time" class="session-edit-time session-edit-start" value="${defaultStart}">
+    <span style="color:var(--muted)">–</span>
+    <input type="time" class="session-edit-time session-edit-end" value="${defaultEnd}">
+    <button class="btn-icon btn-save-add" title="Add">+</button>
+    <button class="btn-icon btn-cancel-add" title="Cancel">✗</button>
+    <span class="session-edit-error"></span>
+  `;
+
+  const addBtn = document.getElementById('btnAddSession');
+  addBtn.parentNode.insertBefore(formRow, addBtn);
+
+  formRow.querySelector('.btn-save-add').addEventListener('click', async () => {
+    const typeEl  = formRow.querySelector('.session-edit-select');
+    const startEl = formRow.querySelector('.session-edit-start');
+    const endEl   = formRow.querySelector('.session-edit-end');
+    const errEl   = formRow.querySelector('.session-edit-error');
+    if (!startEl.value || !endEl.value) { errEl.textContent = 'Both times are required'; return; }
+    const startIso = localTimeToIso(dateStr, startEl.value);
+    const endIso   = localTimeToIso(dateStr, endEl.value);
+    if (new Date(startIso) >= new Date(endIso)) { errEl.textContent = 'Start must be before end'; return; }
+    try {
+      await api('/api/sessions/manual', 'POST', { date: dateStr, start_time: startIso, end_time: endIso, session_type: typeEl.value });
+      await refreshAfterEdit(dateStr);
+    } catch (err) {
+      errEl.textContent = 'Add failed';
+    }
+  });
+
+  formRow.querySelector('.btn-cancel-add').addEventListener('click', () => showDayLog(dateStr));
+}
+
+async function refreshAfterEdit(dateStr) {
+  await Promise.all([syncStatus(), syncWeekMonth(), showDayLog(dateStr)]);
+  renderCalendar();
 }
 
 function calNavigate(delta) {
